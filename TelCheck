@@ -1,0 +1,344 @@
+
+
+//           SBI Core Banking Project, Hyderabad, India.          *
+//*****************************************************************
+//                                                                *
+//  	           PROGRAM - TellerChecker.Java                 
+//                                                                *
+//*****************************************************************
+//                 P R O G R A M    H I S T O R Y                 *
+//                                                                *
+//   PROGRAMMER    :    DATE       :  SPR NO   :   COMMENTS       *
+//----------------------------------------------------------------*
+//Niharika Tammana : 07/01/2026    : 26020038  :  MICROSERVICES   *
+//----------------------------------------------------------------*
+
+
+package com.tcs.bancs.microservices.utils;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+
+import java.util.List;
+import java.util.Objects;
+
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.tcs.bancs.microservices.db.model.Crdd;
+import com.tcs.bancs.microservices.db.model.Ig01;
+import com.tcs.bancs.microservices.db.model.Im01;
+import com.tcs.bancs.microservices.db.model.Telm;
+import com.tcs.bancs.microservices.db.model.Tmp_1_Crdd;
+import com.tcs.bancs.microservices.db.model.Tmp_1_telm;
+import com.tcs.bancs.microservices.db.model.Tmp_2_Crdd;
+import com.tcs.bancs.microservices.db.model.Tmp_2_telm;
+import com.tcs.bancs.microservices.repository.day.CrddDetailDayRepo;
+import com.tcs.bancs.microservices.repository.day.Ig01DetailDayRepo;
+import com.tcs.bancs.microservices.repository.day.TelmDetailDayRepo;
+import com.tcs.bancs.microservices.repository.night.CrddDetailTmp1Repo;
+import com.tcs.bancs.microservices.repository.night.CrddDetailNightRepo;
+import com.tcs.bancs.microservices.repository.night.Im01DetailNightRepo;
+import com.tcs.bancs.microservices.repository.ref.Im01DetailRefRepo;
+import com.tcs.bancs.microservices.repository.night.TelmDetailNightRepo;
+import com.tcs.bancs.microservices.repository.night.TelmDetailTmp1Repo;
+import com.tcs.bancs.microservices.repository.ref.CrddDetailRefRepo;
+import com.tcs.bancs.microservices.repository.ref.CrddDetailTmp2Repo;
+import com.tcs.bancs.microservices.repository.ref.TelmDetailRefRepo;
+import com.tcs.bancs.microservices.repository.ref.TelmDetailTmp2Repo;
+
+@Component
+public class TellerChecker {
+
+	
+	@Value("${UTENVCALS-IMFLAG}")
+	private String imflag;
+	
+	
+	Logger logger = LoggerFactory.getLogger(TellerChecker.class);
+	
+	
+	private final TelmDetailDayRepo   telmDayRepo;
+	private final TelmDetailNightRepo   telmNightRepo;
+	private final TelmDetailTmp1Repo telmTmp1Repo;
+	private final TelmDetailRefRepo telmRefRepo;
+	private final TelmDetailTmp2Repo   telmTmp2Repo;
+	private final Ig01DetailDayRepo   ig01DetailDayRepo;
+	private final Im01DetailNightRepo   im01DetailNightRepo;
+	private final Im01DetailRefRepo   im01DetailRefRepo;
+	private final CrddDetailDayRepo   crddDetailDayRepo;
+	private final CrddDetailNightRepo   crddDetailNightRepo;
+	private final CrddDetailTmp1Repo crddDetailTmp1Repo;
+	private final CrddDetailRefRepo crddDetailRefRepo;
+	private final CrddDetailTmp2Repo   crddDetailTmp2Repo;
+	
+	public TellerChecker(TelmDetailDayRepo telmDayRepo,
+			             TelmDetailNightRepo telmNightRepo,
+			             TelmDetailTmp1Repo telmTmp1Repo,
+			             TelmDetailRefRepo  telmRefRepo,
+			   		     TelmDetailTmp2Repo telmTmp2Repo,      
+	                     Ig01DetailDayRepo ig01DetailDayRepo,
+	                     Im01DetailNightRepo im01DetailNightRepo,
+	                     Im01DetailRefRepo  im01DetailRefRepo,
+		                 CrddDetailDayRepo crddDetailDayRepo,
+		                 CrddDetailNightRepo crddDetailNightRepo,
+		                 CrddDetailTmp1Repo crddDetailTmp1Repo,
+		                 CrddDetailRefRepo  crddDetailRefRepo,
+		                 CrddDetailTmp2Repo crddDetailTmp2Repo)
+	{
+		this.telmDayRepo             =   telmDayRepo; 
+		this.telmNightRepo        =   telmNightRepo;
+		this.telmTmp1Repo        =   telmTmp1Repo; 
+		this.telmRefRepo          = telmRefRepo;
+		this.telmTmp2Repo          =   telmTmp2Repo; 
+		this.ig01DetailDayRepo    =   ig01DetailDayRepo; 
+		this.im01DetailNightRepo       =   im01DetailNightRepo;
+		this.im01DetailRefRepo    =  im01DetailRefRepo;
+		this.crddDetailDayRepo       =   crddDetailDayRepo;
+		this.crddDetailNightRepo  =   crddDetailNightRepo;
+		this.crddDetailTmp1Repo  =    crddDetailTmp1Repo;
+		this.crddDetailRefRepo   =    crddDetailRefRepo;
+		this.crddDetailTmp2Repo    =   crddDetailTmp2Repo; 			
+	}
+
+	 boolean allowTeller;
+	 boolean ValidTeller;
+	 boolean tableExists;
+	
+	String formattedTeller           = new String();
+	String formattedCardFileForCrdd  =  new String();
+	String formattedTellerForCrdd    =  new String();
+	String formatTellerRemoveZeros   =  new String();
+	String ig01Date                  = new String();
+	String sigonTelmDate             = new String();
+	String teller_identifier         = new String();
+	String stat                      = new String();
+	String sign_on_flag              = new String();
+	boolean flag                     = false;
+	List<Telm> telm                  = new ArrayList<Telm>();
+	List<Tmp_1_telm> T1_telm         = new ArrayList<Tmp_1_telm>();
+	List<Tmp_2_telm> T2_telm         = new ArrayList<Tmp_2_telm>();
+	
+	
+	List<Ig01> signonDate          = new ArrayList<Ig01>();
+	List<Im01> signonDate_Im01     = new ArrayList<Im01>();	
+	List<Crdd> crdd                 = new ArrayList<Crdd>();
+	List<Tmp_1_Crdd> T1_crdd       = new ArrayList<Tmp_1_Crdd>();
+	List<Tmp_2_Crdd> T2_crdd       = new ArrayList<Tmp_2_Crdd>();
+	
+	public TellerResult checkTeller(String tellerno,DbType dbType,String refno) {
+		
+		ArrayList<Object> queryParamsTlr = new ArrayList<>();
+		
+		queryParamsTlr.add("003");
+		formattedTeller = StringUtils.leftPad(tellerno, 16, "0");
+		queryParamsTlr.add(formattedTeller);
+
+		// For CRDD Teller Check
+		formatTellerRemoveZeros = tellerno.replaceAll("^0+(?!$)", "");
+		formattedTellerForCrdd = String.format("%-299s", formatTellerRemoveZeros);
+		
+		try {
+			if(dbType==DbType.DAY)
+			{
+			crdd = crddDetailDayRepo.findByCrddDetails(formattedTellerForCrdd);
+			}
+			else if(dbType==DbType.NIGHT)
+			{
+				crdd = crddDetailNightRepo.findByCrddDetails(formattedTellerForCrdd);
+				if(crdd.isEmpty()) {
+					T1_crdd = crddDetailTmp1Repo.findByCrddDetails(formattedTellerForCrdd);			
+				}
+			}
+			else if(dbType==DbType.REF) {
+				crdd = crddDetailRefRepo.findByCrddDetails(formattedTellerForCrdd);
+				if(crdd.isEmpty()) {
+					T2_crdd = crddDetailTmp2Repo.findByCrddDetails(formattedTellerForCrdd);		
+				}
+			}
+			else {
+				logger.info("VC---------------CRDD Validation Failed due to Invalid DB Type -------------VC "+ refno);
+			}
+			
+		}
+		catch(Exception e)
+		{
+			logger.info("Exception Occured at CRDD Check Moving to Telm Validation" + refno );
+		}
+		
+		if (crdd != null && (!crdd.isEmpty() || !T1_crdd.isEmpty() || !T2_crdd.isEmpty())) {
+			if(!crdd.isEmpty()) {
+				if (formatTellerRemoveZeros.equals(crdd.get(0).getVALUE().trim())) {
+					logger.info("VC------------------------Virtual Teller Based on CRDD Value Validated Sucessfully------------------------VC "+ refno);
+					return new TellerResult(true, true, true);
+				}
+			}else if(!T1_crdd.isEmpty()) {
+				
+				if (formatTellerRemoveZeros.equals(T1_crdd.get(0).getVALUE().trim())) {
+					logger.info("VC------------------------Virtual Teller Based on Tmp_1_CRDD Value Validated Sucessfully------------------------VC "+ refno);
+					return new TellerResult(true, true, true);
+				}
+				
+			}else if(!T2_crdd.isEmpty()) {
+				
+				if (formatTellerRemoveZeros.equals(T2_crdd.get(0).getVALUE().trim())) {
+					logger.info("VC------------------------Virtual Teller Based on Tmp_2_CRDD Value Validated Sucessfully------------------------VC "+ refno);
+					return new TellerResult(true, true, true);
+				}
+			}
+			else {
+				logger.info("VC---------------CRDD Validation Failed-------------VC "+ refno);
+			}
+	
+		} else {
+			try {
+				if(dbType==DbType.DAY)
+				{
+					telm = telmDayRepo.findByTelmDetails("003", formattedTeller);
+				}
+				else if(dbType==DbType.NIGHT) {
+					telm = telmNightRepo.findByTelmDetails("003", formattedTeller);	
+					if(telm.isEmpty())
+					{
+						T1_telm = telmTmp1Repo.findByTelmDetails("003", formattedTeller);						
+					}
+				}				
+				else if(dbType==DbType.REF) {
+					telm = telmRefRepo.findByTelmDetails("003", formattedTeller);	
+					if(telm.isEmpty())
+					{
+						T2_telm = telmTmp2Repo.findByTelmDetails("003", formattedTeller);							
+					}
+				}
+				else {
+					logger.info("VC---------------Teller Validation Failed in TELM due to Invalid DB Type -------------VC "+ refno);
+				}
+			}
+
+			catch(Exception e)
+			{
+				logger.info("Exception Occured at TELM Check Moving to Main Class" + refno );
+				return new TellerResult(false, false,false);
+			}
+			if (telm != null && !telm.isEmpty()) {
+				sign_on_flag = telm.get(0).getSIGNON_FLAG();
+				teller_identifier = telm.get(0).getTELLER_IDENTIFIER();
+				sigonTelmDate = telm.get(0).getSIGN_ON_DATE();
+				stat = telm.get(0).getSTAT();	
+				flag = true;
+			}
+			else if(T1_telm != null && !T1_telm.isEmpty()){	
+				sign_on_flag = T1_telm.get(0).getSIGNON_FLAG();
+				teller_identifier = T1_telm.get(0).getTELLER_IDENTIFIER();
+				sigonTelmDate = T1_telm.get(0).getSIGN_ON_DATE();
+				stat = T1_telm.get(0).getSTAT();		
+				flag = true;
+			}
+			else if(T2_telm != null && !T2_telm.isEmpty()){	
+				sign_on_flag = T2_telm.get(0).getSIGNON_FLAG();
+				teller_identifier = T2_telm.get(0).getTELLER_IDENTIFIER();
+				sigonTelmDate = T2_telm.get(0).getSIGN_ON_DATE();
+				stat = T2_telm.get(0).getSTAT();	
+				flag = true;
+			}
+			else {
+				flag = false;
+			}
+				
+
+			if(flag){
+				if ("Y".equals(teller_identifier)) 
+				{
+					logger.info("VC------------------------Virtual Teller Based On Teller Identifier Validated Sucessfully------------------------VC "+ refno);
+					flag = false;
+					return new TellerResult(true, true, true);
+				}
+				else  {
+					if(dbType==DbType.DAY) {
+						signonDate = ig01DetailDayRepo.findByIg01Details();
+						ig01Date = convertToDDMMYYYY(signonDate.get(0).getCntldate());
+					}
+					else if(dbType==DbType.NIGHT) {
+						if ("N".equals(imflag)) {
+						     signonDate_Im01 = im01DetailNightRepo.findByIm01Details();
+						     ig01Date = convertToDDMMYYYY(signonDate_Im01.get(0).getCntldate());
+						}else {
+						     ig01Date = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+						 }
+					}
+					else if(dbType==DbType.REF) {
+						if ("N".equals(imflag)) {
+					        signonDate_Im01 = im01DetailRefRepo.findByIm01Details();
+					        ig01Date = convertToDDMMYYYY(signonDate_Im01.get(0).getCntldate());
+					    } else {
+					        ig01Date = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+					    }
+					}
+					else {
+						logger.info("VC---------------Teller Validation Failed due to Invalid DB Type -------------VC "+ refno);
+					}
+					
+					if ("Y".equals(sign_on_flag) && "01".equals(stat) && Objects.equals(sigonTelmDate, ig01Date)) {
+						logger.info("VC------------------------Teller Validated Sucessfully------------------------VC "+ refno);
+						flag = false;
+						return new TellerResult(true, true, true);
+					}
+					else {
+						flag = false;
+						return new TellerResult(false, true, true);
+					}
+				} 
+			} else {
+				return new TellerResult(false, false,true);
+			}
+		}
+		 return new TellerResult(false, false,true);		
+	}
+
+	
+	private String convertToDDMMYYYY(String inputDate) {
+	        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+	        DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+	        LocalDate date = LocalDate.parse(inputDate, inputFormatter);
+		 return date.format(outputFormatter);
+	}
+	
+	
+	public String getIg01Date() {
+		return ig01Date;
+	}
+
+	public void setIg01Date(String ig01Date) {
+		this.ig01Date = ig01Date;
+	}
+
+	public boolean isAllowTeller() {
+		return allowTeller;
+	}
+
+	public void setAllowTeller(boolean allowTeller) {
+		this.allowTeller = allowTeller;
+	}
+
+	public boolean isValidTeller() {
+		return ValidTeller;
+	}
+
+	public void setValidTeller(boolean validTeller) {
+		ValidTeller = validTeller;
+	}
+
+	public boolean isTableExists() {
+		return tableExists;
+	}
+
+	public void setTableExists(boolean tableExists) {
+		this.tableExists = tableExists;
+	}
+	
+}
