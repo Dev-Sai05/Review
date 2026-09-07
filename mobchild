@@ -1,0 +1,128 @@
+package com.tcs.bancs.microservices.services;
+
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import javax.sql.DataSource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.microfocus.cobol.runtimeservices.RunUnit;
+import com.tcs.bancs.microservices.config.CacheConfig;
+import com.tcs.bancs.microservices.configuration.PropertyLoader;
+import com.tcs.bancs.microservices.jvm.scpf.JVMMOB;
+import com.tcs.bancs.microservices.jvm.scpf.JVMMOB.*;
+import com.tcs.bancs.microservices.util.FrameworkConstants;
+
+public class MobileEnqService {
+	
+	Logger logger = LoggerFactory.getLogger(MobileEnqService.class);
+	String errno = new String();
+	String customerStatus = CacheConfig.frameworkConfigProperties.getProperty(FrameworkConstants.LOOKUP_FILES_PATH);
+	Properties custStatus = PropertyLoader
+			.readPropertyFile(new String(customerStatus + "/CustomerStatus.properties"));
+	
+	public List<String> callMOBEnquiryChild( String refno,String branchno, String tellerno, String mobno, String cifno,DataSource dataSource,String commonArea) throws RuntimeException {
+		
+		logger.info("VC------------------------MOB Enquiry Child Service Started------------------------VC "+refno);
+
+		List<String> res = new ArrayList<>();
+		String lacctno = cifno == null ? "00000000000000000" : String.format("%017d", new BigInteger(cifno));
+		
+        int index = 0;       
+        StringBuilder allRecordsBuilder = new StringBuilder();
+        try (Connection connection = dataSource.getConnection();RunUnit run1 = new RunUnit())
+        {
+  
+
+    	    JVMMOB          jvmpan      = new JVMMOB();        	  	
+        	LsBranchNo  	mobinput1	= new LsBranchNo();
+        	LsTellerNo	    mobinput2	= new LsTellerNo();
+            LsMobNumber 	mobinput3 	= new LsMobNumber();
+            LsPanNumber     paninput    = new LsPanNumber();
+            LsEmail         emailinput  = new LsEmail();
+            LsCustomerNo    mobinput4	= new LsCustomerNo();
+            LsFunction	    mobinput5	= new LsFunction();	
+            LsErrorMsgNo    moboutput2  = new LsErrorMsgNo();
+            LsLastCust      moboutput3 	= new LsLastCust();
+            LsLastNumCuid	mobcuid		= new LsLastNumCuid();
+            LsDataValuesOut	outResult   = new LsDataValuesOut();
+            LsRecordArea    mobinput8   = new LsRecordArea();             
+           
+            mobinput2.setLsTellerNo(tellerno);
+            mobinput1.setLsBranchNo(String.format("%016d", Integer.parseInt(branchno)));  
+            mobinput3.setLsMobNumber(mobno);
+            paninput.setLsPanNumber("");
+            emailinput.setLsEmail("");
+            mobinput4.setLsCustomerNo(lacctno);
+            mobinput5.setLsFunction("M");
+            mobcuid.setLsLastNumCuid("");
+            mobinput8.setLsRecordArea(commonArea);
+            
+            
+            
+
+            run1.Add(jvmpan);
+            
+         // Call the JVMSCPF service
+            run1.Call("JVMMOB",
+            		mobinput1.get_Reference(), 
+            		mobinput2.get_Reference(), 
+            		mobinput3.get_Reference(), 
+            		paninput.get_Reference(),
+            		emailinput.get_Reference(), 
+            		mobinput4.get_Reference(),  
+            		mobinput5.get_Reference(),
+            		outResult.get_Reference(),
+            		moboutput2.get_Reference(),	
+            		moboutput3.get_Reference(),
+            		mobcuid.get_Reference(),
+            		mobinput8.get_Reference(),               		
+            		connection );
+      
+          
+            	  while (index < 990) {
+                      
+                    
+            		  String outPutRes = outResult.getLsPr0474DataValuesOut(index);
+                      if(outPutRes==null||outPutRes.trim().isEmpty())
+                      {
+                      	break;
+                      }
+                      String lastThree = outPutRes.substring(77,80);
+                      String custDesc = custStatus.getProperty(lastThree);
+                      custDesc = (custDesc==null) ? " ".repeat(100) : custDesc;
+                      allRecordsBuilder.append(outPutRes.substring(0, 83)+custDesc);
+                      index++;
+                  }
+           
+           
+            	  errno = moboutput2.getLsErrorMsgNo();
+
+        
+    } 
+        
+        catch (SQLException e)
+        {
+        	errno = "3293";
+        	logger.info("VC------------------------Exception Occured at MOB Enquiry Child Service ------------------------VC "+refno);
+        } 
+
+        
+        res.add(allRecordsBuilder.toString()); 
+        res.add(String.valueOf(index)); 
+        res.add(errno);
+
+
+        logger.info("VC------------------------MOB Enquiry Child Service Ended ------------------------VC "+refno);
+
+		
+        return res;
+        
+        
+    }
+}
