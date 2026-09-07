@@ -1,0 +1,126 @@
+
+//           SBI Core Banking Project, Hyderabad, India.          *
+//*****************************************************************
+//                                                                *
+//  	           PROGRAM - BranchChecker.Java                   *       
+//                                                                *
+//*****************************************************************
+//                 P R O G R A M    H I S T O R Y                 *
+//                                                                *
+//   PROGRAMMER    :    DATE       :  SPR NO   :   COMMENTS       *
+//----------------------------------------------------------------*
+//Uday Kiran : 02/04/2026    :  26050069 :  MICROSERVICES         *
+//----------------------------------------------------------------*
+
+package com.tcs.bancs.microservices.utils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.apache.commons.lang.StringUtils;
+import com.tcs.bancs.microservices.db.model.Brhm;
+import com.tcs.bancs.microservices.db.model.Tmp_1_brhm;
+import com.tcs.bancs.microservices.db.model.Tmp_2_brhm;
+import com.tcs.bancs.microservices.repository.day.BrhmDetailDayRepo;
+import com.tcs.bancs.microservices.repository.night.BrhmDetailTmp1Repo;
+import com.tcs.bancs.microservices.repository.night.BrhmDetailNightRepo;
+import com.tcs.bancs.microservices.repository.ref.BrhmDetailRefRepo;
+import com.tcs.bancs.microservices.repository.ref.BrhmDetailTmp2Repo;
+
+@Component
+public class BranchChecker {
+	Logger logger = LoggerFactory.getLogger(BranchChecker.class);
+	
+    private final BrhmDetailDayRepo brhmDayRepo;
+    private final BrhmDetailNightRepo brhmNightRepo;
+    private final BrhmDetailTmp1Repo brhmTmp1Repo;
+    private final BrhmDetailRefRepo brhmRefRepo;
+    private final BrhmDetailTmp2Repo brhmTmp2Repo;
+
+    public BranchChecker(BrhmDetailDayRepo   brhmDayRepo,
+    		             BrhmDetailNightRepo brhmNightRepo,
+    		             BrhmDetailTmp1Repo  brhmTmp1Repo,
+    		             BrhmDetailRefRepo   brhmRefRepo,
+                         BrhmDetailTmp2Repo   brhmTmp2Repo
+                         ) {
+        this.brhmDayRepo   = brhmDayRepo;
+        this.brhmNightRepo = brhmNightRepo;
+        this.brhmTmp1Repo  = brhmTmp1Repo;
+        this.brhmRefRepo   = brhmRefRepo;
+        this.brhmTmp2Repo  = brhmTmp2Repo;
+    }
+
+
+	
+	public BranchResult checkBranch(String branchno,DbType dbType,String refno) {
+		
+		String formattedBranch   = new String();
+		ArrayList<Object> queryParamsBrhm = new ArrayList<>();
+		
+		formattedBranch = "003" + StringUtils.leftPad(branchno, 16, "0");
+		queryParamsBrhm.add(formattedBranch);
+		List<Brhm> brhm          = new ArrayList<Brhm>();
+		List<Tmp_1_brhm> T1_brhm = new ArrayList<Tmp_1_brhm>();
+		List<Tmp_2_brhm> T2_brhm = new ArrayList<Tmp_2_brhm>();
+		
+		try {
+			if(dbType==DbType.DAY)
+			{
+			brhm = brhmDayRepo.findByBrhmDetails(formattedBranch);
+			}
+			else if(dbType==DbType.NIGHT) {
+				
+				brhm = brhmNightRepo.findByBrhmDetails(formattedBranch);
+				if(brhm.isEmpty())
+				{
+					T1_brhm = brhmTmp1Repo.findByBrhmDetails(formattedBranch);					
+				}				
+			}
+			else if(dbType==DbType.REF) {
+
+				brhm = brhmRefRepo.findByBrhmDetails(formattedBranch);
+				if(brhm.isEmpty())
+				{
+					T2_brhm = brhmTmp2Repo.findByBrhmDetails(formattedBranch);					
+				}
+			}
+			else {
+				logger.info("VC---------------Branch Validation Failed in BRHM due to Invalid DB Type -------------VC "+ refno);
+				return new BranchResult(false, false);
+			}
+			
+			
+			if(brhm != null && !brhm.isEmpty()) {
+				logger.info("VC-------------- Branch Validated Sucessfully -BRHM --------------VC "+refno);
+				return new BranchResult(true,true);
+			}
+			else if(T1_brhm != null && !T1_brhm.isEmpty()) {
+				logger.info("VC-------------- Branch Validated Sucessfully -TMP_1_BRHM --------------VC "+refno);
+				return new BranchResult(true,true);
+			}
+			else if(T2_brhm != null && !T2_brhm.isEmpty()) {
+				logger.info("VC-------------- Branch Validated Sucessfully -TMP_2_BRHM--------------VC "+refno);
+				return new BranchResult(true,true);
+
+			}
+				
+			 return new BranchResult(false,true);
+			
+		}
+		catch(IllegalArgumentException e) {
+			logger.info("IllegalArgumentException Occured at Branch Check " + refno );
+			return new BranchResult(false,false);
+		}
+		catch(Exception e)
+		{
+			logger.info("Exception Occured at Branch Check " + refno );
+			return new BranchResult(false,false);
+		}
+		
+	}
+	
+}
