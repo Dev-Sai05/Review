@@ -1,0 +1,36 @@
+//           SBI Core Banking Project, Hyderabad, India.          *
+//*****************************************************************
+//                                                                *
+//  	           PROGRAM - CrddDetailDayRepo.Java               *       
+//                                                                *
+//*****************************************************************
+//                 P R O G R A M    H I S T O R Y                 *
+//                                                                *
+//   PROGRAMMER    :    DATE       :  SPR NO   :   COMMENTS       *
+//----------------------------------------------------------------*
+//Uday Kiran : 04/06/2026    :  26050069 :  MICROSERVICES         *
+//----------------------------------------------------------------*
+
+package com.tcs.bancs.microservices.repository.day;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import com.tcs.bancs.microservices.db.model.Crdd;
+import com.tcs.bancs.microservices.db.model.Crddpk;
+
+@Repository
+public interface CrddDetailDayRepo extends JpaRepository<Crdd, Crddpk>{
+
+		 @Query(value="select /*+ INDEX_ASC(CRDD CRDDPK) */ CARDFILENAME,VALUE from CRDD where LINE_NO='1' AND FIELD_NO='1' AND STATUS='0' and CARDFILENAME='BYPASS_TLM.card' and VALUE=:value", nativeQuery=true)
+	
+		 public List<Crdd> findByCrddDetails(@Param("value")String value);
+		 
+
+}
+
+
