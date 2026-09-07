@@ -1,0 +1,31 @@
+//           SBI Core Banking Project, Hyderabad, India.          *
+//*****************************************************************
+//                                                                *
+//  	           PROGRAM - TelmDetailDayRepo.Java               *       
+//                                                                *
+//*****************************************************************
+//                 P R O G R A M    H I S T O R Y                 *
+//                                                                *
+//   PROGRAMMER    :    DATE       :  SPR NO   :   COMMENTS       *
+//----------------------------------------------------------------*
+//Uday Kiran : 04/06/2026    :  26050069 :  MICROSERVICES         *
+//----------------------------------------------------------------*
+
+package com.tcs.bancs.microservices.repository.day;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import com.tcs.bancs.microservices.db.model.Telm;
+import com.tcs.bancs.microservices.db.model.Telmpk;
+
+
+@Repository
+public interface TelmDetailDayRepo extends JpaRepository<Telm, Telmpk>{
+	 @Query(value="select /*+ INDEX_ASC(TELM TELMPK) */PRIM_INST,BRCH_NO,PRIM_BRANCH,TERM_NO,TERM_TYPE,SIGNON_FLAG,SIGN_ON_DATE_BIN,SOC_NO,TELLER_NO,TELLER_IDENTIFIER,STAT,SIGN_ON_DATE from TELM where SOC_NO=:socno and TELLER_NO=:teller_no", nativeQuery=true)
+	  public List<Telm> findByTelmDetails(@Param("socno")String socno,@Param("teller_no")String teller_no);
+
+}
