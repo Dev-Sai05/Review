@@ -1,0 +1,51 @@
+//SBI Core Banking Project, Hyderabad, India.       *
+//*****************************************************************
+//                                                                *
+//           PROGRAM - Error_Description.Java                     *
+//                                                                *
+//*****************************************************************
+//           P R O G R A M    H I S T O R Y                       *
+//                                                                *
+//PROGRAMMER    :    DATE       :  SPR NO   :   COMMENTS          *
+//----------------------------------------------------------------*
+//Uday Kiran : 04/06/2026    :  26050069 :  MICROSERVICES         *
+//----------------------------------------------------------------*
+
+package com.tcs.bancs.microservices.java.txtm;
+
+import java.sql.Connection;
+
+import com.microfocus.cobol.runtimeservices.RunUnit;
+import com.tcs.bancs.microservices.jvm.coll.JVMTXTM;
+import com.tcs.bancs.microservices.jvm.coll.LsJvmErrorNumber;
+import com.tcs.bancs.microservices.jvm.coll.LsJvmErrorDesc;
+import com.tcs.bancs.microservices.jvm.coll.LsRecordArea;
+
+
+
+
+
+public class Error_Description {
+
+		public String getCbsErrDesc(String errno, String inpcallCode, String inpoptcode, String inpcommonarea, Connection connection) {
+			    
+		    String errdesc = "";
+		    String formattedErrorNo = String.format("%04d", Integer.parseInt(errno.trim()));
+		    
+		    
+			JVMTXTM jvmtxtm = new JVMTXTM();
+			LsJvmErrorNumber input = new LsJvmErrorNumber();
+			LsJvmErrorDesc output = new LsJvmErrorDesc();
+			LsRecordArea   inputrec = new LsRecordArea();
+			
+			input.setLsJvmErrorNumber(formattedErrorNo);
+			inputrec.setLsRecordArea(inpcommonarea);
+            RunUnit run1 = new RunUnit();
+            run1.Add(jvmtxtm);
+            run1.Call("JVMTXTM", input.get_Reference(), output.get_Reference(), inputrec.get_Reference(), connection);
+			errdesc = output.getLsJvmErrorDesc();
+			run1.close();
+			return errdesc;	
+	   }
+
+}
